@@ -1,0 +1,224 @@
+<!doctype html>
+<!-- Every Topside app icon, drawn in SVG to the icon guide (../apps/ICONS.md): a tonal gradient ground in the app's own
+     hue, lit from above, with a glass rim; one bold, solid porcelain object with a specular top edge and a shadow in
+     the ground's colour; exactly one accent. The hues run round the wheel in Dock order, so the Dock reads as a spectrum.
+     ?app=week renders that icon alone at 1024 × 1024 on a transparent background (render-icons.sh screenshots it);
+     with no ?app, all eleven show side by side for review. -->
+<html><head><meta charset="utf-8"><title>Topside icons</title><style>
+html,body{margin:0;background:transparent}
+body.one{width:1024px;height:1024px;overflow:hidden}
+body.all{background:#e8e8ed;display:flex;flex-wrap:wrap;gap:8px;padding:24px}
+body.all svg{width:256px;height:256px}
+svg{display:block}
+</style></head><body><script>
+// top and bottom: the ground's two stops, about 20° apart. deep: shadows and the bottom darkening. tint: the porcelain's
+// pale bottom. accent: the one detail.
+const PALETTES = {
+  week:    { top: "#ff6f5c", bottom: "#e0253f", deep: "#8a0f22", tint: "#f9e1e0", accent: "#e3283f" },
+  awake:   { top: "#ffbf57", bottom: "#f26f1f", deep: "#93390a", tint: "#fbe9d6", accent: "#6e3612" },
+  pipette: { top: "#ffe169", bottom: "#f4a21f", deep: "#8f5205", tint: "#fbefd2", accent: "#7a45e6" },
+  mirror:  { top: "#c2ea6a", bottom: "#5bb43a", deep: "#2a6512", tint: "#ebf5d9", accent: "#4f9a2a" },
+  upnext:  { top: "#4ddfa4", bottom: "#10a37a", deep: "#065a42", tint: "#d9f4ea", accent: "#ff8a2a" },
+  shelf:   { top: "#43d8d2", bottom: "#0d96a8", deep: "#055764", tint: "#d8f2f2", accent: "#ff7a59" },
+  scrub:   { top: "#5fc9ff", bottom: "#178de0", deep: "#0a4c88", tint: "#ddeffb", accent: "#ffc93a" },
+  zones:   { top: "#7393ff", bottom: "#3a4be0", deep: "#19237f", tint: "#e2e7fb", accent: "#2535b4" },
+  beam:    { top: "#d98dff", bottom: "#9a3ce0", deep: "#521b82", tint: "#f2e4fb", accent: "#6a26aa" },
+  hush:    { top: "#ff7fa9", bottom: "#e5306c", deep: "#86113d", tint: "#fbe2eb", accent: "#a5124a" },
+  drawer:  { top: "#717986", bottom: "#2d323b", deep: "#0f1216", tint: "#e5e8ec", accent: "#5fb4ff" },
+};
+
+const C = 512;
+const rgba = (hex, a) => `rgba(${parseInt(hex.slice(1, 3), 16)},${parseInt(hex.slice(3, 5), 16)},${parseInt(hex.slice(5, 7), 16)},${a})`;
+const polar = (r, deg, cx = C, cy = C) => [cx + r * Math.sin(deg * Math.PI / 180), cy - r * Math.cos(deg * Math.PI / 180)];
+
+// The frame every icon shares. `layers` draw the object; each layer wears p.obj so it casts its own shadow (in the
+// ground's deep colour) and catches a specular line along its top edges.
+function icon(app, layers) {
+  const p = PALETTES[app];
+  const id = (n) => `${app}-${n}`;
+  const q = { ...p, obj: `filter="url(#${id("obj")})"`, porcelain: `url(#${id("porcelain")})`, sphere: `url(#${id("sphere")})` };
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024"
+    style="filter:drop-shadow(0 22px 34px ${rgba(p.deep, 0.3)}) drop-shadow(0 3px 6px ${rgba(p.deep, 0.18)})">
+  <defs>
+    <linearGradient id="${id("ground")}" gradientUnits="userSpaceOnUse" x1="200" y1="100" x2="824" y2="924">
+      <stop offset="0" stop-color="${p.top}"/><stop offset="1" stop-color="${p.bottom}"/>
+    </linearGradient>
+    <radialGradient id="${id("glow")}" gradientUnits="userSpaceOnUse" cx="512" cy="110" r="620">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.25"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="${id("dusk")}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0.62" stop-color="${p.deep}" stop-opacity="0"/><stop offset="1" stop-color="${p.deep}" stop-opacity="0.28"/>
+    </linearGradient>
+    <linearGradient id="${id("rim")}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.35"/><stop offset="1" stop-color="#fff" stop-opacity="0.05"/>
+    </linearGradient>
+    <linearGradient id="${id("porcelain")}" gradientUnits="userSpaceOnUse" x1="0" y1="220" x2="0" y2="800">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="${p.tint}"/>
+    </linearGradient>
+    <radialGradient id="${id("sphere")}" cx="0.35" cy="0.3" r="0.75">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="0.6" stop-color="#ffffff"/><stop offset="1" stop-color="${p.tint}"/>
+    </radialGradient>
+    <clipPath id="${id("body")}"><rect x="100" y="100" width="824" height="824" rx="185"/></clipPath>
+    <!-- The object's shadow in the ground's deep colour, and a specular line where its top edges meet the light. -->
+    <filter id="${id("obj")}" x="-30%" y="-30%" width="160%" height="170%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="14" result="blur"/><feOffset in="blur" dy="18" result="down"/>
+      <feFlood flood-color="${p.deep}" flood-opacity="0.45"/><feComposite in2="down" operator="in" result="shadow"/>
+      <feOffset in="SourceAlpha" dy="4" result="lower"/>
+      <feComposite in="SourceAlpha" in2="lower" operator="out" result="edge"/>
+      <feGaussianBlur in="edge" stdDeviation="0.8" result="edgeSoft"/>
+      <feFlood flood-color="#fff" flood-opacity="0.9"/><feComposite in2="edgeSoft" operator="in" result="spec"/>
+      <feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/><feMergeNode in="spec"/></feMerge>
+    </filter>
+  </defs>
+  <g clip-path="url(#${id("body")})">
+    <rect x="100" y="100" width="824" height="824" fill="url(#${id("ground")})"/>
+    <rect x="100" y="100" width="824" height="824" fill="url(#${id("glow")})"/>
+    <rect x="100" y="100" width="824" height="824" fill="url(#${id("dusk")})"/>
+    ${layers(q)}
+  </g>
+  <rect x="101" y="101" width="822" height="822" rx="184" fill="none" stroke="url(#${id("rim")})" stroke-width="2"/>
+</svg>`;
+}
+
+const ICONS = {
+  // A calendar page on its binder rings, its days as dots, this week's row lit in the ground's red.
+  week: icon("week", (p) => {
+    let dots = "";
+    for (let row = 0; row < 3; row += 1) for (let col = 0; col < 7; col += 1) {
+      dots += `<circle cx="${332 + col * 60}" cy="${470 + row * 90}" r="20" fill="${row === 1 ? "#fff" : rgba(p.deep, 0.18)}"/>`;
+    }
+    return `<g ${p.obj}>
+      <rect x="272" y="292" width="480" height="440" rx="80" fill="${p.porcelain}"/>
+      <path d="M272 372 A80 80 0 0 1 352 292 H672 A80 80 0 0 1 752 372 V392 H272 Z" fill="${rgba(p.deep, 0.07)}"/>
+      <rect x="290" y="${470 + 90 - 44}" width="444" height="88" rx="44" fill="${p.accent}"/>
+      ${dots}
+    </g>
+    <g ${p.obj}><rect x="388" y="248" width="40" height="104" rx="20" fill="${p.porcelain}"/><rect x="596" y="248" width="40" height="104" rx="20" fill="${p.porcelain}"/></g>`;
+  }),
+
+  // A porcelain cup of black coffee.
+  awake: icon("awake", (p) => `<g ${p.obj} transform="translate(-14 10)">
+      <path d="M676 420 A88 88 0 0 1 676 596" fill="none" stroke="${p.porcelain}" stroke-width="48" stroke-linecap="round"/>
+      <path d="M296 380 H668 C668 566 612 690 482 690 C352 690 296 566 296 380 Z" fill="${p.porcelain}"/>
+      <ellipse cx="482" cy="380" rx="186" ry="44" fill="#ffffff"/>
+      <ellipse cx="482" cy="384" rx="160" ry="30" fill="${p.accent}"/>
+    </g>`),
+
+  // An eyedropper, and the colour it just picked as a drop.
+  pipette: icon("pipette", (p) => `<g ${p.obj} transform="rotate(40 530 470)">
+      <rect x="440" y="180" width="180" height="230" rx="90" fill="${p.porcelain}"/>
+      <rect x="410" y="396" width="240" height="64" rx="26" fill="${p.porcelain}"/>
+      <path d="M470 460 H590 L560 690 Q530 724 500 690 Z" fill="${p.porcelain}"/>
+    </g>
+    <g ${p.obj}><path d="M356 664 C382 708 412 734 412 768 A56 56 0 1 1 300 768 C300 734 330 708 356 664 Z" fill="${p.accent}"/></g>`),
+
+  // A hand mirror, held up, and you in it.
+  mirror: icon("mirror", (p) => `
+    <defs><clipPath id="mirror-glass"><circle cx="512" cy="460" r="164"/></clipPath>
+      <linearGradient id="mirror-face" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${p.tint}"/><stop offset="1" stop-color="#d4ecbf"/></linearGradient></defs>
+    <g ${p.obj} transform="translate(0 -40)">
+      <rect x="474" y="660" width="76" height="170" rx="38" fill="${p.porcelain}"/>
+      <circle cx="512" cy="460" r="214" fill="${p.porcelain}"/>
+      <circle cx="512" cy="460" r="164" fill="url(#mirror-face)"/>
+      <g clip-path="url(#mirror-glass)" fill="${p.accent}">
+        <circle cx="512" cy="426" r="58"/>
+        <path d="M392 628 C392 548 448 504 512 504 C576 504 632 548 632 628 Z"/>
+        <path d="M340 418 L470 288 L516 288 L340 464 Z" fill="#fff" fill-opacity="0.4"/>
+      </g>
+    </g>`),
+
+  // A countdown ring: the time left in orange.
+  upnext: icon("upnext", (p) => `<g ${p.obj}>
+      <circle cx="512" cy="512" r="214" fill="none" stroke="${p.porcelain}" stroke-width="88"/>
+      <circle cx="512" cy="512" r="214" fill="none" stroke="${p.accent}" stroke-width="88" stroke-linecap="round"
+        pathLength="100" stroke-dasharray="62 38" transform="rotate(-90 512 512)"/>
+      <circle cx="512" cy="512" r="46" fill="${p.porcelain}"/>
+    </g>`),
+
+  // A tray with files parked in it; the front file has a photo on it.
+  shelf: icon("shelf", (p) => `
+    <g ${p.obj}><rect x="330" y="292" width="200" height="300" rx="30" fill="${p.porcelain}" transform="rotate(-9 430 442)"/></g>
+    <g ${p.obj}>
+      <rect x="496" y="312" width="200" height="280" rx="30" fill="${p.porcelain}" transform="rotate(7 596 452)"/>
+      <rect x="532" y="352" width="128" height="104" rx="18" fill="${p.accent}" transform="rotate(7 596 452)"/>
+    </g>
+    <g ${p.obj}>
+      <rect x="252" y="560" width="520" height="172" rx="62" fill="${p.porcelain}"/>
+      <rect x="432" y="616" width="160" height="28" rx="14" fill="${rgba(p.deep, 0.18)}"/>
+    </g>`),
+
+  // Two porcelain chain links, truly linked, and a glint where they've been polished.
+  scrub: icon("scrub", (p) => `
+    <defs>
+      <clipPath id="scrub-ca"><circle cx="464" cy="417" r="64"/></clipPath>
+      <clipPath id="scrub-cb"><circle cx="556" cy="607" r="64"/></clipPath>
+      <mask id="scrub-a" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+        <rect width="1024" height="1024" fill="#fff"/>
+        <rect x="464" y="417" width="320" height="190" rx="95" fill="none" stroke="#000" stroke-width="88" clip-path="url(#scrub-ca)"/>
+      </mask>
+      <mask id="scrub-b" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+        <rect width="1024" height="1024" fill="#fff"/>
+        <rect x="236" y="417" width="320" height="190" rx="95" fill="none" stroke="#000" stroke-width="88" clip-path="url(#scrub-cb)"/>
+      </mask>
+    </defs>
+    <g ${p.obj}><g transform="rotate(-45 512 512)">
+      <rect x="236" y="417" width="320" height="190" rx="95" fill="none" stroke="${p.porcelain}" stroke-width="58" mask="url(#scrub-a)"/>
+      <rect x="464" y="417" width="320" height="190" rx="95" fill="none" stroke="${p.porcelain}" stroke-width="58" mask="url(#scrub-b)"/>
+    </g></g>
+    <g ${p.obj}><path d="M744 236 C752 276 768 292 808 300 C768 308 752 324 744 364 C736 324 720 308 680 300 C720 292 736 276 744 236 Z" fill="${p.accent}"/></g>`),
+
+  // A porcelain globe with the hands of a clock on it.
+  zones: icon("zones", (p) => {
+    const [hx, hy] = polar(118, 300), [mx, my] = polar(170, 48);
+    return `<defs><clipPath id="zones-ball"><circle cx="512" cy="512" r="224"/></clipPath></defs>
+    <g ${p.obj}>
+      <circle cx="512" cy="512" r="224" fill="${p.sphere}"/>
+      <g clip-path="url(#zones-ball)" fill="none" stroke="${rgba(p.bottom, 0.22)}" stroke-width="14">
+        <ellipse cx="512" cy="512" rx="100" ry="224"/><line x1="288" y1="512" x2="736" y2="512"/>
+      </g>
+      <g stroke="${p.accent}" stroke-width="34" stroke-linecap="round"><line x1="512" y1="512" x2="${hx}" y2="${hy}"/><line x1="512" y1="512" x2="${mx}" y2="${my}"/></g>
+      <circle cx="512" cy="512" r="30" fill="${p.accent}"/>
+    </g>`;
+  }),
+
+  // A white QR card, tilted like Snicker's GIF card.
+  beam: icon("beam", (p) => {
+    const finder = (x, y) => `<rect x="${x + 15}" y="${y + 15}" width="102" height="102" rx="26" fill="none" stroke="${p.accent}" stroke-width="30"/>
+      <rect x="${x + 40}" y="${y + 40}" width="52" height="52" rx="12" fill="${p.accent}"/>`;
+    return `<g ${p.obj} transform="rotate(-6 512 512)">
+      <rect x="292" y="292" width="440" height="440" rx="76" fill="${p.porcelain}"/>
+      ${finder(340, 340)}${finder(552, 340)}${finder(340, 552)}
+      <g fill="${p.accent}"><rect x="562" y="562" width="44" height="44" rx="10"/><rect x="630" y="562" width="44" height="44" rx="10"/><rect x="630" y="630" width="44" height="44" rx="10"/></g>
+    </g>`;
+  }),
+
+  // A porcelain microphone, struck through.
+  hush: icon("hush", (p) => `
+    <defs><mask id="hush-cut" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+      <rect width="1024" height="1024" fill="#fff"/>
+      <line x1="314" y1="258" x2="710" y2="766" stroke="#000" stroke-width="92" stroke-linecap="round"/>
+    </mask></defs>
+    <g ${p.obj}>
+      <g mask="url(#hush-cut)">
+        <rect x="430" y="234" width="164" height="296" rx="82" fill="${p.porcelain}"/>
+        <path d="M352 458 A160 160 0 0 0 672 458" fill="none" stroke="${p.porcelain}" stroke-width="46" stroke-linecap="round"/>
+        <path d="M512 620 V716 M436 732 H588" fill="none" stroke="${p.porcelain}" stroke-width="46" stroke-linecap="round"/>
+      </g>
+      <line x1="314" y1="258" x2="710" y2="766" stroke="${p.accent}" stroke-width="46" stroke-linecap="round"/>
+    </g>`),
+
+  // A menu bar strip: icons fading out behind the divider, and the chevron that brings them back.
+  drawer: icon("drawer", (p) => `<g ${p.obj} transform="translate(512 512) scale(1.18) translate(-512 -512)">
+      <rect x="212" y="424" width="600" height="176" rx="88" fill="${p.porcelain}"/>
+      <rect x="282" y="476" width="72" height="72" rx="20" fill="${rgba(p.deep, 0.2)}"/>
+      <rect x="378" y="476" width="72" height="72" rx="20" fill="${rgba(p.deep, 0.42)}"/>
+      <rect x="474" y="476" width="72" height="72" rx="20" fill="${rgba(p.deep, 0.75)}"/>
+      <rect x="586" y="464" width="18" height="96" rx="9" fill="${p.deep}"/>
+      <path d="M716 464 L664 512 L716 560" fill="none" stroke="${p.accent}" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>`),
+};
+
+const app = new URLSearchParams(location.search).get("app");
+document.body.className = app ? "one" : "all";
+document.body.insertAdjacentHTML("beforeend", app ? ICONS[app] : Object.values(ICONS).join(""));
+</script></body></html>

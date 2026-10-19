@@ -1,0 +1,29 @@
+name: CI
+
+# Builds every app and runs the tests. The website is its own repo (Luis-Sejer/apps).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apps:
+    runs-on: macos-26
+    steps:
+      # Actions are pinned to commits, not tags, so a moved tag can't change what runs.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build every app
+        run: ./build.sh
+      # Full Xcode on the runner ships the Testing plugin, so plain `swift test` works here (./test.sh is for the
+      # Command Line Tools).
+      - name: Test
+        run: swift test
+
