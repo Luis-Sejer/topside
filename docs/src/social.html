@@ -1,0 +1,32 @@
+<!doctype html>
+<!-- The GitHub social preview (Settings → Social preview), laid out like Snicker's banner. Render it with:
+     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --disable-gpu --hide-scrollbars \
+       --window-size=1280,640 --screenshot="$PWD/../assets/social/github-social.png" "file://$PWD/social.html"
+     from docs/src. The icons come from ../assets/icons/ (render-icons.sh). -->
+<html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box}
+html,body{margin:0;overflow:hidden;font-family:system-ui,-apple-system,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+body{width:1280px;height:640px;background:#f5f5f7;position:relative;color:#1d1d1f}
+.bar{position:absolute;inset:0 0 auto;height:28px;background:rgba(246,246,248,.9);border-bottom:1px solid rgba(0,0,0,.1);display:flex;align-items:center;justify-content:flex-end;gap:14px;padding:0 16px;font-size:13px;font-weight:500}
+.bar b{font-weight:700;margin-right:auto}
+.mark{display:inline-flex;padding:2px 6px;border-radius:6px;background:rgba(0,0,0,.09)}
+.copy{position:absolute;left:88px;top:50%;transform:translateY(-45%)}
+h1{margin:0;font-size:112px;font-weight:700;letter-spacing:-.04em;line-height:.95}
+p{margin:18px 0 0;font-size:30px;color:#515154;max-width:13em;line-height:1.25}
+.icons{position:absolute;right:72px;top:50%;transform:translateY(-45%);display:grid;grid-template-columns:repeat(8,64px);row-gap:8px}
+.icons img{width:118px;height:118px;display:block;grid-column:span 2;justify-self:center}
+.icons img:nth-child(2){transform:translateY(-10px) rotate(3deg)}
+.icons img:nth-child(5){transform:rotate(-4deg)}
+.icons img:nth-child(7){transform:translateY(8px) rotate(4deg)}
+.icons img:nth-child(10){transform:translateY(6px) rotate(-3deg)}
+/* The last row has three icons; half a column in, so it sits centred under the four above. */
+.icons img:nth-child(9){grid-column:2/span 2}
+</style></head><body>
+<div class="bar"><b>Topside</b><span class="mark">Uge 43</span><span>Mon 19 Oct 09:41</span></div>
+<div class="copy"><h1>Topside</h1><p>Eleven small Mac menu bar apps, one small problem each.</p></div>
+<div class="icons">
+<img src="../assets/icons/week.png" alt=""><img src="../assets/icons/awake.png" alt=""><img src="../assets/icons/pipette.png" alt=""><img src="../assets/icons/mirror.png" alt="">
+<img src="../assets/icons/upnext.png" alt=""><img src="../assets/icons/shelf.png" alt=""><img src="../assets/icons/scrub.png" alt=""><img src="../assets/icons/zones.png" alt="">
+<img src="../assets/icons/beam.png" alt=""><img src="../assets/icons/hush.png" alt=""><img src="../assets/icons/drawer.png" alt="">
+</div>
+</body></html>

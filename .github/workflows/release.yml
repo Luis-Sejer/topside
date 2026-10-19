@@ -1,0 +1,54 @@
+name: Release
+
+# Builds every app from the tag, signs it with the Topside certificate and publishes one zip per app.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-26
+    steps:
+      # Actions are pinned to commits, not tags, so a moved tag can't change what runs.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # build.sh reads the version from the tag
+
+      - name: Import the signing certificate
+        env:
+          SIGNING_CERT_P12: ${{ secrets.SIGNING_CERT_P12 }}
+          SIGNING_CERT_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
+        run: |
+          # The same certificate every release, or macOS drops the apps' permissions on each update.
+          test -n "$SIGNING_CERT_P12" || { echo "::error::The SIGNING_CERT_P12 secret is not set"; exit 1; }
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          security create-keychain -p "" "$keychain"
+          security set-keychain-settings "$keychain"
+          security unlock-keychain -p "" "$keychain"
+          echo "$SIGNING_CERT_P12" | base64 --decode > "$RUNNER_TEMP/signing.p12"
+          security import "$RUNNER_TEMP/signing.p12" -k "$keychain" -P "$SIGNING_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" "$keychain"
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/signing.p12"
+
+      - name: Build
+        env:
+          TOPSIDE_SIGNING_IDENTITY: Topside
+        run: |
+          ./build.sh
+          # One zip per app, named as install.sh and each app's updater expect.
+          for app in build/*.app; do
+            ditto -c -k --keepParent "$app" "${app%.app}.zip"
+          done
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # build.sh bundled this version's CHANGELOG section in every app as its What's New; it is the same in each.
+          VERSION=${GITHUB_REF_NAME#v}
+          gh release create "$GITHUB_REF_NAME" build/*.zip --title "Topside $VERSION" --notes-file build/Week.app/Contents/Resources/whats-new.md

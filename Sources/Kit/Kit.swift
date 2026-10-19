@@ -44,5 +44,7 @@ private final class Delegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         app = make()
+        WhatsNew.showIfPending()
+        Updater.shared.checkIfDue()
     }
 }

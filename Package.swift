@@ -9,5 +9,5 @@ let package = Package(
     platforms: [.macOS("26.0")],
     targets: [.target(name: "Kit")]
         + apps.map { .executableTarget(name: $0, dependencies: ["Kit"]) }
-        + [.testTarget(name: "TopsideTests", dependencies: ["Week", "Pipette", "Upnext", "Scrub", "Zones", "Drawer"])]
+        + [.testTarget(name: "TopsideTests", dependencies: ["Kit", "Week", "Pipette", "Upnext", "Scrub", "Zones", "Drawer"])]
 )

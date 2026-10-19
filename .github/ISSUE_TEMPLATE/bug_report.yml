@@ -1,0 +1,60 @@
+name: Bug report
+description: Something in one of the Topside apps doesn't work as expected
+labels: [bug]
+body:
+  - type: dropdown
+    id: app
+    attributes:
+      label: Which app?
+      options:
+        - Week
+        - Awake
+        - Pipette
+        - Mirror
+        - Upnext
+        - Shelf
+        - Scrub
+        - Zones
+        - Beam
+        - Hush
+        - Drawer
+        - The installer (install.sh)
+        - More than one
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Click the menu bar icon
+        2. …
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      description: Right-click the app's menu bar icon and choose About.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS version
+      description: Apple menu → About This Mac.
+      placeholder: "macOS 27.0"
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or anything else

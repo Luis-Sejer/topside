@@ -26,8 +26,13 @@ final class Hush {
     private var hotKey: HotKey?
     private var timer: Timer?
     private var terminateObserver: Any?
-    /// Set when Hush muted the mic, so quitting can give the mic back instead of leaving it silently off.
-    private var mutedByHush = false
+    /// The microphone Hush muted, so quitting gives that one back instead of leaving it silently off, even after
+    /// switching mics. Saved, so a relaunch in between doesn't forget it.
+    private var mutedByHush: String? {
+        get { UserDefaults.standard.string(forKey: Self.mutedByHushKey) }
+        set { UserDefaults.standard.set(newValue, forKey: Self.mutedByHushKey) }
+    }
+    private static let mutedByHushKey = "mutedMicrophoneUID"
 
     init() {
         hotKey = HotKey(keyCode: Self.shortcut.keyCode, modifiers: Self.shortcut.modifiers) { [weak self] in
@@ -39,24 +44,37 @@ final class Hush {
         }
         terminateObserver = NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
-                if self?.mutedByHush == true, let mic = Microphone.current { mic.isMuted = false }
+                guard let self, let uid = self.mutedByHush else { return }
+                Microphone(uid: uid)?.isMuted = false
+                self.mutedByHush = nil
             }
         }
     }
 
     private func toggle() {
-        guard let mic = Microphone.current else {
+        guard let mic = Microphone.current, mic.canMute else {
             NSSound.beep()
+            Kit.announce(Microphone.current.map { "Hush can't mute \($0.name)" } ?? "No microphone found")
             return
         }
-        mic.isMuted.toggle()
-        mutedByHush = mic.isMuted
-        NSSound(named: mic.isMuted ? "Bottle" : "Pop")?.play()
-        Kit.announce(mic.isMuted ? "Microphone muted" : "Microphone on")
+        let mute = !mic.isMuted
+        mic.isMuted = mute
+        // Some devices accept the change and ignore it; only say what really happened.
+        guard mic.isMuted == mute else {
+            NSSound.beep()
+            Kit.announce("Hush couldn't \(mute ? "mute" : "unmute") \(mic.name)")
+            update()
+            return
+        }
+        mutedByHush = mute ? mic.uid : nil
+        NSSound(named: mute ? "Bottle" : "Pop")?.play()
+        Kit.announce(mute ? "Microphone muted" : "Microphone on")
         update()
     }
 
     private func update() {
+        // Unmuted somewhere else (System Settings, the mic's own button): nothing for Hush to give back.
+        if let uid = mutedByHush, Microphone(uid: uid)?.isMuted != true { mutedByHush = nil }
         guard let mic = Microphone.current else {
             item.setSymbol("mic.slash")
             item.setTint(nil)
@@ -73,11 +91,12 @@ final class Hush {
 
     private func menuItems() -> [NSMenuItem] {
         guard let mic = Microphone.current else { return [.label("No microphone found")] }
+        guard mic.canMute else { return [.label(mic.name), .label("This microphone can't be muted")] }
         return [
             .label(mic.name),
             .label(mic.isInUse ? "In use by an app" : "Not in use"),
             NSMenuItem(mic.isMuted ? "Unmute" : "Mute", symbol: mic.isMuted ? "mic" : "mic.slash") { [unowned self] in toggle() },
-            .label("Shortcut: \(Self.shortcut.display)"),
+            hotKey == nil ? .shortcutTaken(Self.shortcut.display) : .label("Shortcut: \(Self.shortcut.display)"),
         ]
     }
 }
@@ -95,12 +114,40 @@ struct Microphone {
         return status == noErr && id != kAudioObjectUnknown ? Microphone(id: id) : nil
     }
 
-    var name: String {
-        var address = Self.address(kAudioObjectPropertyName, scope: kAudioObjectPropertyScopeGlobal)
-        var name: Unmanaged<CFString>?
+    /// The device with this UID, if it's still connected.
+    init?(uid: String) {
+        var address = Self.address(kAudioHardwarePropertyTranslateUIDToDevice, scope: kAudioObjectPropertyScopeGlobal)
+        var uid = uid as CFString
+        var id = AudioObjectID(kAudioObjectUnknown)
+        var size = UInt32(MemoryLayout<AudioObjectID>.size)
+        let status = withUnsafePointer(to: &uid) { pointer in
+            AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, UInt32(MemoryLayout<CFString>.size), pointer, &size, &id)
+        }
+        guard status == noErr, id != kAudioObjectUnknown else { return nil }
+        self.id = id
+    }
+
+    init(id: AudioObjectID) {
+        self.id = id
+    }
+
+    var name: String { string(kAudioObjectPropertyName) ?? "Microphone" }
+
+    /// Stays the same across reconnects and restarts, unlike `id`.
+    var uid: String? { string(kAudioDevicePropertyDeviceUID) }
+
+    /// Whether Hush can silence it at all: through its own mute, or its input volume.
+    var canMute: Bool {
+        isSettable(kAudioDevicePropertyMute, scope: kAudioObjectPropertyScopeInput)
+            || isSettable(kAudioDevicePropertyVolumeScalar, scope: kAudioObjectPropertyScopeInput)
+    }
+
+    private func string(_ selector: AudioObjectPropertySelector) -> String? {
+        var address = Self.address(selector, scope: kAudioObjectPropertyScopeGlobal)
+        var value: Unmanaged<CFString>?
         var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
-        guard AudioObjectGetPropertyData(id, &address, 0, nil, &size, &name) == noErr, let name else { return "Microphone" }
-        return name.takeRetainedValue() as String
+        guard AudioObjectGetPropertyData(id, &address, 0, nil, &size, &value) == noErr, let value else { return nil }
+        return value.takeRetainedValue() as String
     }
 
     /// True while any app is recording from it.

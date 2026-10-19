@@ -20,12 +20,17 @@ final class Beam {
 
     init() {
         // Read on open only, never in the background. macOS asks once whether Beam may read the clipboard.
-        item.onShow = { [model] in model.text = NSPasteboard.general.string(forType: .string) }
+        item.onShow = { [model] in
+            model.isDenied = NSPasteboard.general.accessBehavior == .alwaysDeny
+            model.text = model.isDenied ? nil : NSPasteboard.general.string(forType: .string)
+        }
     }
 }
 
 final class BeamModel: ObservableObject {
     @Published var text: String?
+    /// Clipboard access turned off for Beam in System Settings: an empty clipboard would look the same.
+    @Published var isDenied = false
 
     /// Nil when the text is too long for a QR code.
     var code: NSImage? {
@@ -44,7 +49,17 @@ struct BeamView: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            if let text = model.text, !text.isEmpty {
+            if model.isDenied {
+                ContentUnavailableView {
+                    Label("Clipboard Access Is Off", systemImage: "lock")
+                } description: {
+                    Text("Beam can only show what's on the clipboard if macOS lets it read it.")
+                } actions: {
+                    Button("Allow Clipboard Access…") {
+                        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Pasteboard")!)
+                    }
+                }
+            } else if let text = model.text, !text.isEmpty {
                 if let code = model.code {
                     Image(nsImage: code)
                         .interpolation(.none) // keep the modules sharp; smoothing blurs them and phones misread it

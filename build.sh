@@ -52,6 +52,9 @@ for APP_NAME in $APPS; do
     iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
     rm -rf "$ICONSET"
 
+    # This version's CHANGELOG section: the app shows it under What's New, and the release uses it as its notes.
+    awk -v version="$VERSION" '/^## \[/ { inside = index($0, "[" version "]") > 0; next } inside' CHANGELOG.md > "$APP/Contents/Resources/whats-new.md"
+
     BUNDLE_ID=dk.sejer.$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]')
     cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

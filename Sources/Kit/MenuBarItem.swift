@@ -3,7 +3,8 @@ import ServiceManagement
 import SwiftUI
 
 /// One menu bar icon, the whole interface of most apps in the suite. A click runs `click`; right-click
-/// (or Control-click) shows the app menu: the app's own `menuItems`, then About and Quit.
+/// (or Control-click) shows the app menu: an update when there is one, the app's own `menuItems`, then Check for
+/// Updates, Open at Login, About and Quit.
 @MainActor
 public final class MenuBarItem: NSObject {
     public enum Click {
@@ -86,6 +87,7 @@ public final class MenuBarItem: NSObject {
     }
 
     @objc private func clicked() {
+        Updater.shared.checkIfDue()
         // VoiceOver and other Accessibility presses arrive without a mouse event; they count as a click.
         let event = NSApp.currentEvent
         if event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true {
@@ -108,8 +110,13 @@ public final class MenuBarItem: NSObject {
     private func appMenu(with items: [NSMenuItem]) -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
+        if let version = Updater.shared.availableVersion {
+            menu.addItem(NSMenuItem("Update to Topside \(version)…", symbol: "arrow.down.circle") { Updater.shared.offerUpdate() })
+            menu.addItem(.separator())
+        }
         items.forEach(menu.addItem)
         if !items.isEmpty { menu.addItem(.separator()) }
+        menu.addItem(NSMenuItem("Check for Updates…") { Updater.shared.checkNow() })
         let login = NSMenuItem("Open at Login") { Self.toggleOpenAtLogin() }
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(login)
@@ -218,6 +225,12 @@ extension NSMenuItem {
     /// A gray line that only informs, like "Awake until 22:15".
     public static func label(_ title: String) -> NSMenuItem {
         NSMenuItem(title, action: nil)
+    }
+
+    /// For a global shortcut another app already holds, which `HotKey` reports by being nil: says so, instead of
+    /// listing a shortcut that does nothing.
+    public static func shortcutTaken(_ shortcut: String) -> NSMenuItem {
+        NSMenuItem("\(shortcut) is used by another app", symbol: "exclamationmark.triangle", action: nil)
     }
 }
 

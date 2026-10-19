@@ -1,0 +1,25 @@
+name: Feature request
+description: Suggest an idea for a Topside app, or a new small app
+labels: [enhancement]
+body:
+  - type: input
+    id: app
+    attributes:
+      label: Which app?
+      description: Or "a new app".
+      placeholder: "Week, Hush, a new app…"
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: Describe the problem or the moment where an app could help more.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How do you imagine it working?
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Anything you've tried instead?

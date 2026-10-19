@@ -1,6 +1,7 @@
 import AppKit
 import Testing
 @testable import Drawer
+@testable import Kit
 @testable import Pipette
 @testable import Scrub
 @testable import Upnext
@@ -169,4 +170,19 @@ import Testing
     #expect(alpha(5, 5) == 255)
     #expect(alpha(0, 0) == 0)
     #expect(MenuBarExtras.isMonochrome(picture))
+}
+
+@Test func kitComparesVersions() {
+    #expect(Updater.isVersion("1.10.0", newerThan: "1.9.0"))
+    #expect(Updater.isVersion("1.0.1", newerThan: "1.0.0"))
+    #expect(!Updater.isVersion("1.0.0", newerThan: "1.0.0"))
+    #expect(!Updater.isVersion("0.9.9", newerThan: "1.0.0"))
+}
+
+@Test func kitShowsWhatsNewOnceAfterAnUpdate() {
+    #expect(!WhatsNew.shouldShow(version: "1.0.0", lastSeen: nil, shown: nil)) // a fresh install
+    #expect(!WhatsNew.shouldShow(version: "1.0.0", lastSeen: "1.0.0", shown: nil)) // just a relaunch
+    #expect(WhatsNew.shouldShow(version: "1.1.0", lastSeen: "1.0.0", shown: nil))
+    #expect(WhatsNew.shouldShow(version: "1.1.0", lastSeen: "1.0.0", shown: "1.0.0"))
+    #expect(!WhatsNew.shouldShow(version: "1.1.0", lastSeen: "1.0.0", shown: "1.1.0")) // another app showed it
 }

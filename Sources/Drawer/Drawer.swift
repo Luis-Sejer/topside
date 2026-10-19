@@ -166,10 +166,15 @@ final class Drawer {
         let show = NSMenuItem(bar.isShown ? "Hide Drawer Bar" : "Show Drawer Bar", symbol: "rectangle.topthird.inset.filled") { [unowned self] in
             toggleBar()
         }
-        // Shown beside the item, like any menu shortcut. The global hotkey does the actual work.
-        show.keyEquivalent = "b"
-        show.keyEquivalentModifierMask = [.control, .option]
-        var items = [show, .separator()]
+        var items = [show]
+        if hotKeys.isEmpty {
+            items.append(.shortcutTaken("⌃⌥B"))
+        } else {
+            // Shown beside the item, like any menu shortcut. The global hotkey does the actual work.
+            show.keyEquivalent = "b"
+            show.keyEquivalentModifierMask = [.control, .option]
+        }
+        items.append(.separator())
         if !MenuBarExtras.canRead {
             items.append(NSMenuItem("Allow Accessibility…", symbol: "lock.open") { MenuBarExtras.requestReading() })
         }
