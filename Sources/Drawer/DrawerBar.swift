@@ -1,23 +1,30 @@
 import AppKit
 import SwiftUI
 
-/// The hidden icons in a panel under the menu bar, like Ice Bar and Bartender Bar, so they never have to squeeze into
-/// the menu bar or hide behind the notch. Typing searches every menu bar icon, hidden or not; Return opens the first.
+/// The hidden icons in a strip that drops down from Drawer's chevron, like a second menu bar: one row of icons,
+/// wrapping only when there are many. Typing searches every menu bar icon, hidden or not; Return opens the first.
 @MainActor
 final class DrawerBar: NSObject {
-    private static let width: CGFloat = 380
-    private static let columns = 9
-    private static let rowHeight: CGFloat = 40
-    /// The search field, the padding and the hint line under the icons.
-    private static let chrome: CGFloat = 96
-    private static let gapBelowMenuBar: CGFloat = 6
+    nonisolated static let cell = CGSize(width: 32, height: 26)
+    nonisolated static let spacing: CGFloat = 4
+    nonisolated static let maxColumns = 14
+    nonisolated static let padding: CGFloat = 8
+    /// The search field above the icons, and the gap under it.
+    private nonisolated static let searchHeight: CGFloat = 30
+    /// Wide enough for the search field when only a few icons are hidden.
+    private nonisolated static let minWidth: CGFloat = 240
+    /// Room for the search field and the permission prompt, before Drawer may read the menu bar.
+    private static let permissionSize = CGSize(width: 340, height: 140)
+    private static let gapBelowMenuBar: CGFloat = 4
 
     let model = BarModel()
     private lazy var panel: NSPanel = makePanel()
+    private let closed: () -> Void
 
     var isShown: Bool { panel.isVisible }
 
-    init(open: @escaping (MenuBarExtra) -> Void) {
+    init(open: @escaping (MenuBarExtra) -> Void, closed: @escaping () -> Void) {
+        self.closed = closed
         super.init()
         model.open = { [weak self] extra in
             self?.close()
@@ -32,19 +39,29 @@ final class DrawerBar: NSObject {
         model.canRead = MenuBarExtras.canRead
         model.all = extras
         model.hiddenIDs = hidden
-        let rows = max(1, Int(ceil(Double(max(hidden.count, 1)) / Double(Self.columns))))
-        let height = Self.chrome + CGFloat(rows) * Self.rowHeight
+        let size = model.canRead ? Self.size(for: hidden.count) : Self.permissionSize
         let screen = NSScreen.screens.first { $0.frame.contains(anchor.origin) } ?? NSScreen.main
         let top = (screen?.visibleFrame.maxY ?? anchor.minY) - Self.gapBelowMenuBar
         let right = min(anchor.maxX, screen?.frame.maxX ?? anchor.maxX)
-        panel.setFrame(NSRect(x: right - Self.width, y: top - height, width: Self.width, height: height), display: true)
+        panel.setFrame(NSRect(x: right - size.width, y: top - size.height, width: size.width, height: size.height), display: true)
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
         model.focusSearch = true
     }
 
+    /// One row per `maxColumns` icons; with none, room for the one-line message instead.
+    nonisolated static func size(for icons: Int) -> CGSize {
+        let columns = min(max(icons, 1), maxColumns)
+        let rows = max(1, Int((Double(icons) / Double(maxColumns)).rounded(.up)))
+        let width = CGFloat(columns) * cell.width + CGFloat(columns - 1) * spacing + 2 * padding
+        let height = searchHeight + CGFloat(rows) * cell.height + CGFloat(rows - 1) * spacing + 2 * padding
+        return CGSize(width: max(width, minWidth), height: height)
+    }
+
     func close() {
+        guard panel.isVisible else { return }
         panel.orderOut(nil)
+        closed()
     }
 
     private func makePanel() -> NSPanel {
@@ -56,7 +73,10 @@ final class DrawerBar: NSObject {
         panel.backgroundColor = .clear
         panel.hasShadow = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
-        panel.contentView = NSHostingView(rootView: BarView(model: model))
+        let host = NSHostingView(rootView: BarView(model: model))
+        // The bar's size is set in `show`; left to itself, SwiftUI grows the panel to fit long text.
+        host.sizingOptions = []
+        panel.contentView = host
         panel.delegate = self
         return panel
     }
@@ -99,37 +119,36 @@ struct BarView: View {
     @FocusState private var searchFocused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 6) {
             TextField("Search menu bar", text: $model.query)
                 .textFieldStyle(.roundedBorder)
+                .controlSize(.small)
                 .focused($searchFocused)
                 .onSubmit { model.shown.first.map(model.open) }
             if !model.canRead {
                 permissionPrompt
             } else if model.shown.isEmpty {
-                Text(model.query.isEmpty ? "No hidden icons. ⌘-drag icons left of │ to hide them." : "No menu bar icon matches.")
+                Text(model.query.isEmpty ? "Everything fits in the menu bar." : "No menu bar icon matches.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 8)
             } else {
-                LazyVGrid(columns: Array(repeating: GridItem(.fixed(34), spacing: 6), count: 9), alignment: .leading, spacing: 6) {
+                let columns = Array(repeating: GridItem(.fixed(DrawerBar.cell.width), spacing: DrawerBar.spacing),
+                                    count: min(model.shown.count, DrawerBar.maxColumns))
+                LazyVGrid(columns: columns, alignment: .trailing, spacing: DrawerBar.spacing) {
                     ForEach(model.shown) { extra in
                         Button { model.open(extra) } label: { picture(of: extra) }
-                            .buttonStyle(.plain)
+                            .buttonStyle(IconButtonStyle())
                             .help("\(extra.appName): \(extra.title)")
                             .accessibilityLabel("\(extra.appName): \(extra.title)")
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            Spacer(minLength: 0)
-            Text(model.query.isEmpty ? "Click an icon to open it. Type to search every icon." : "Return opens the first match.")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
         }
-        .padding(14)
+        .padding(DrawerBar.padding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .onExitCommand { model.close() }
         .onChange(of: model.focusSearch) { _, focus in
             if focus {
@@ -139,16 +158,17 @@ struct BarView: View {
         }
     }
 
+    /// The real icon when there's a picture of it, otherwise the app's icon, small, the way a menu bar icon is.
     private func picture(of extra: MenuBarExtra) -> some View {
         Group {
             if let picture = model.pictures[MenuBarExtras.pictureKey(extra)] {
-                Image(nsImage: picture).resizable().aspectRatio(contentMode: .fit)
+                Image(nsImage: picture).renderingMode(picture.isTemplate ? .template : .original)
+                    .resizable().aspectRatio(contentMode: .fit).foregroundStyle(.primary)
             } else {
-                Image(nsImage: extra.app.icon ?? NSImage()).resizable().aspectRatio(contentMode: .fit).padding(4)
+                Image(nsImage: extra.app.icon ?? NSImage()).resizable().aspectRatio(contentMode: .fit).padding(3)
             }
         }
-        .frame(width: 34, height: 30)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .frame(width: DrawerBar.cell.width, height: DrawerBar.cell.height)
     }
 
     private var permissionPrompt: some View {
@@ -161,5 +181,29 @@ struct BarView: View {
                 Button("Allow Screen Recording…") { MenuBarExtras.requestPicturing() }
             }
         }
+    }
+}
+
+/// A menu bar icon's highlight: nothing until the pointer is over it, then a soft rounded square, darker when pressed.
+private struct IconButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        IconButton(configuration: configuration)
+    }
+
+    private struct IconButton: View {
+        let configuration: ButtonStyleConfiguration
+        // An ObservableObject rather than @State, which needs Xcode's macro plugins on the macOS 27 SDK (AGENTS.md).
+        @StateObject private var hover = Hover()
+
+        var body: some View {
+            configuration.label
+                .background(.primary.opacity(configuration.isPressed ? 0.18 : hover.isOver ? 0.1 : 0),
+                            in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                .onHover { hover.isOver = $0 }
+        }
+    }
+
+    private final class Hover: ObservableObject {
+        @Published var isOver = false
     }
 }

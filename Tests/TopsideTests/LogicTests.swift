@@ -73,11 +73,29 @@ import Testing
     #expect(Zones.city(try #require(TimeZone(identifier: "America/Argentina/Buenos_Aires"))) == "Buenos Aires")
 }
 
-@Test func drawerStretchesTheRightDivider() {
-    #expect(Drawer.stretched(in: .collapsed, alwaysHidden: true) == (true, false))
-    #expect(Drawer.stretched(in: .shown, alwaysHidden: true) == (false, true))
-    #expect(Drawer.stretched(in: .shown, alwaysHidden: false) == (false, false))
-    #expect(Drawer.stretched(in: .all, alwaysHidden: true) == (false, false))
+@Test func drawerTellsHiddenIconsFromShownOnes() {
+    // Measured on a MacBook Pro with a notch on macOS 27: the » button, an icon stacked behind it, the same icon laid
+    // out left of the notch while the hidden icons show, and the first icon that fits.
+    let overflow = CGRect(x: 1008, y: 1, width: 17.5, height: 30)
+    let stacked = CGRect(x: 991, y: 4, width: 34, height: 26)
+    let laidOut = CGRect(x: 550, y: 4, width: 34, height: 26)
+    let shown = CGRect(x: 1032, y: 4, width: 51, height: 26)
+    #expect(MenuBarExtras.isHidden(stacked, overflow: overflow))
+    #expect(MenuBarExtras.isHidden(laidOut, overflow: overflow))
+    #expect(!MenuBarExtras.isHidden(shown, overflow: overflow))
+    #expect(!MenuBarExtras.isHidden(stacked, overflow: nil)) // everything fits: no button, nothing hidden
+    #expect(MenuBarExtras.isStacked(stacked, overflow: overflow))
+    #expect(!MenuBarExtras.isStacked(laidOut, overflow: overflow))
+    #expect(!MenuBarExtras.isStacked(shown, overflow: overflow))
+}
+
+@Test func drawerBarIsOneRowUntilItWraps() {
+    let one = DrawerBar.size(for: 3), full = DrawerBar.size(for: DrawerBar.maxColumns), wrapped = DrawerBar.size(for: DrawerBar.maxColumns + 1)
+    #expect(one.width == 240) // the search field's minimum
+    #expect(full.height == one.height)
+    #expect(wrapped.width == full.width)
+    #expect(wrapped.height == full.height + DrawerBar.cell.height + DrawerBar.spacing)
+    #expect(DrawerBar.size(for: 0).height == one.height) // room for "Everything fits"
 }
 
 @Test func drawerFindsIconsInTheMenuBar() {
@@ -86,7 +104,7 @@ import Testing
                    (frame: CGRect(x: 1512, y: -98, width: 1920, height: 1080), barHeight: CGFloat(24))]
     #expect(MenuBarExtras.isInMenuBar(CGRect(x: 1300, y: 0, width: 26, height: 33), screens: screens))
     #expect(MenuBarExtras.isInMenuBar(CGRect(x: 2000, y: 0, width: 30, height: 24), screens: screens))
-    // Where macOS parks icons that don't fit: AppKit's (0, -33), below the bottom of the main screen.
+    // A placeholder macOS keeps below the bottom of the main screen.
     #expect(!MenuBarExtras.isInMenuBar(CGRect(x: 0, y: 982, width: 26, height: 33), screens: screens))
     #expect(!MenuBarExtras.isInMenuBar(CGRect(x: 2000, y: 300, width: 30, height: 24), screens: screens))
 }
@@ -134,4 +152,21 @@ import Testing
     let saved = try JSONEncoder().encode(style)
     #expect(try JSONDecoder().decode(MenuBarStyle.self, from: saved) == style)
     #expect(style.isVisible)
+}
+
+@Test func drawerCutsIconsOutOfTheMenuBar() throws {
+    // A white square on the dark grey a menu bar can have behind it, 10 × 10 pixels with the square in the middle.
+    let context = try #require(CGContext(data: nil, width: 10, height: 10, bitsPerComponent: 8, bytesPerRow: 40,
+                                         space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+    context.setFillColor(CGColor(srgbRed: 0.2, green: 0.2, blue: 0.22, alpha: 1))
+    context.fill(CGRect(x: 0, y: 0, width: 10, height: 10))
+    context.setFillColor(CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 1))
+    context.fill(CGRect(x: 3, y: 3, width: 4, height: 4))
+    let square = try #require(context.makeImage())
+    let picture = try #require(MenuBarExtras.cutOut(square))
+    let pixels = try #require(picture.dataProvider?.data as Data?)
+    let alpha = { (x: Int, y: Int) in pixels[(y * picture.bytesPerRow) + x * 4 + 3] }
+    #expect(alpha(5, 5) == 255)
+    #expect(alpha(0, 0) == 0)
+    #expect(MenuBarExtras.isMonochrome(picture))
 }

@@ -15,6 +15,9 @@ VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
 VERSION=${VERSION:-0.1.0}
 BUILD=$(git rev-parse --short HEAD 2>/dev/null || echo local)
 
+# The Topside certificate when it's in the keychain (it needn't be trusted), otherwise ad-hoc.
+IDENTITY=${TOPSIDE_SIGNING_IDENTITY:-$(security find-certificate -c Topside >/dev/null 2>&1 && echo Topside || echo -)}
+
 swift build -c release
 mkdir -p build
 
@@ -27,6 +30,10 @@ for APP_NAME in $APPS; do
         Week|Awake|Pipette|Shelf|Scrub|Zones|Beam|Hush|Drawer) ;;
         *) echo "Unknown app: $APP_NAME (one of: $ALL)"; exit 1 ;;
     esac
+
+    # Drawer works with the » button macOS 27 hides icons behind; the others run on macOS 26.
+    MIN_MACOS=26.0
+    [ "$APP_NAME" = Drawer ] && MIN_MACOS=27.0
 
     APP=build/$APP_NAME.app
     rm -rf "$APP"
@@ -58,15 +65,15 @@ for APP_NAME in $APPS; do
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>$VERSION</string>
     <key>CFBundleVersion</key><string>$BUILD</string>
-    <key>LSMinimumSystemVersion</key><string>26.0</string>
+    <key>LSMinimumSystemVersion</key><string>$MIN_MACOS</string>
     <key>LSUIElement</key><true/>
     $USAGE
 </dict>
 </plist>
 PLIST
-    # Apple Silicon refuses unsigned code. Ad-hoc signing needs no certificate, but macOS forgets granted
-    # permissions (camera, calendar) on every build. Releases need one fixed certificate, as Snicker learned.
-    codesign --force --sign "${TOPSIDE_SIGNING_IDENTITY:--}" "$APP"
+    # Apple Silicon refuses unsigned code. Ad-hoc signing (-) needs no certificate, but macOS forgets granted
+    # permissions on every build. Signed with the one self-made "Topside" certificate, it remembers them.
+    codesign --force --sign "$IDENTITY" "$APP"
     echo "Built $APP ($VERSION)"
 
     if [ -n "$INSTALL" ]; then
