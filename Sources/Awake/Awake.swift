@@ -132,6 +132,10 @@ private final class Curtain {
         NSApp.activate(ignoringOtherApps: true)
         NSApp.presentationOptions = Self.kiosk
         windows.first?.makeKey()
+        if let screen = NSScreen.screens.first {
+            CGWarpMouseCursorPosition(CGPoint(x: screen.frame.midX, y: screen.frame.midY))
+        }
+        freezePointer(true)
         Kit.announce("Screen covered")
     }
 
@@ -141,15 +145,23 @@ private final class Curtain {
         // A Mac without a login password has nothing to check against, and the curtain must never trap anyone.
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) else { return lift() }
         authenticating = true
+        freezePointer(false) // the prompt's Use Password and Cancel buttons need the pointer
         Task {
             let unlocked = (try? await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "uncover the screen")) ?? false
             authenticating = false
-            if unlocked { lift() }
+            if unlocked { lift() } else { freezePointer(true) }
         }
+    }
+
+    /// Hot corners still work under the kiosk options, and one set to Start Screen Saver locks the Mac when the screen
+    /// saver ends. A frozen pointer can't reach a corner.
+    private func freezePointer(_ frozen: Bool) {
+        CGAssociateMouseAndMouseCursorPosition(frozen ? 0 : 1)
     }
 
     private func lift() {
         NSApp.presentationOptions = []
+        freezePointer(false)
         windows.forEach { $0.close() }
         windows = []
         IOPMAssertionRelease(assertion)
