@@ -27,7 +27,7 @@
 | App | What it does | Asks for |
 |---|---|---|
 | **Week** | The week number in the menu bar ("Uge 40"), and a month calendar with the weeks | – |
-| **Awake** | Keeps the Mac and its display awake for 15 minutes to 4 hours, or until turned off | – |
+| **Awake** | Keeps the Mac and its display awake for 15 minutes to 4 hours, or until turned off. Cover Screen blacks out the screen without locking the Mac; Touch ID lifts it | – |
 | **Pipette** | Click, pick any pixel, and its hex code is copied. Right-click for recent colors as hex, RGB or SwiftUI | – |
 | **Mirror** | Your camera, mirrored, for a look before a call. The camera runs only while it's open | Camera |
 | **Upnext** | "Standup in 4 min", and the Teams, Zoom or Meet link one click away | Calendar |

@@ -6,6 +6,10 @@ All notable changes to Topside are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- Awake: Cover Screen blacks out every display and shuts out the keyboard and mouse while the Mac stays awake and signed in, so work in progress keeps running. Touch ID or your password uncovers it.
+
 ## [1.0.0] - 2026-10-19
 
 ### Added
