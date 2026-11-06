@@ -2,6 +2,7 @@ import AppKit
 import IOKit.pwr_mgt
 import Kit
 import LocalAuthentication
+import SwiftUI
 
 @main
 enum Main {
@@ -85,7 +86,7 @@ final class Awake {
     }
 }
 
-/// Covers every screen and shuts out the keyboard and mouse while the Mac stays awake and signed in, so an agent can
+/// Blurs every screen and shuts out the keyboard and mouse while the Mac stays awake and signed in, so an agent can
 /// keep working (and signing commits) while you step away. Touch ID or the login password lifts it. Holding the power
 /// button only ends at the login window, and ⌃⌘Q still locks the Mac the usual way.
 @MainActor
@@ -111,20 +112,12 @@ private final class Curtain {
         windows = NSScreen.screens.map { screen in
             let window = CurtainWindow(contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
             window.isReleasedWhenClosed = false
-            window.backgroundColor = .black
+            window.isOpaque = false
+            window.backgroundColor = .clear
             window.level = Self.level
             window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
             window.onInput = { [unowned self] in unlock() }
-            let label = NSTextField(labelWithString: "Press any key to unlock")
-            label.textColor = NSColor(white: 1, alpha: 0.35)
-            label.translatesAutoresizingMaskIntoConstraints = false
-            if let content = window.contentView {
-                content.addSubview(label)
-                NSLayoutConstraint.activate([
-                    label.centerXAnchor.constraint(equalTo: content.centerXAnchor),
-                    label.centerYAnchor.constraint(equalTo: content.centerYAnchor),
-                ])
-            }
+            window.contentView = NSHostingView(rootView: CurtainView())
             window.setFrame(screen.frame, display: true)
             window.orderFrontRegardless()
             return window
@@ -168,6 +161,44 @@ private final class Curtain {
         Kit.announce("Screen uncovered")
         onLift()
     }
+}
+
+/// The desktop, blurred past reading and dimmed, under a glass card that says how to get back in.
+private struct CurtainView: View {
+    var body: some View {
+        ZStack {
+            Blur().ignoresSafeArea()
+            Color.black.opacity(0.35).ignoresSafeArea()
+            VStack(spacing: 10) {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 34, weight: .medium))
+                    .padding(.bottom, 6)
+                Text("Privacy Mode Enabled")
+                    .font(.title2.weight(.semibold))
+                Text("Press any key to unlock")
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 44)
+            .padding(.vertical, 32)
+            .glassEffect(.regular, in: .rect(cornerRadius: 28))
+            .accessibilityElement(children: .combine)
+        }
+        .environment(\.colorScheme, .dark)
+    }
+}
+
+/// What's behind the window, blurred by the window server; SwiftUI's own blur only reaches its own views.
+private struct Blur: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .fullScreenUI
+        view.blendingMode = .behindWindow
+        view.state = .active
+        view.appearance = NSAppearance(named: .darkAqua)
+        return view
+    }
+
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
 }
 
 /// A borderless window that can take the keyboard and reports any key or click.
